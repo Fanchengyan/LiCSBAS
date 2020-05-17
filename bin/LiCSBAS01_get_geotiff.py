@@ -184,7 +184,7 @@ def main(argv=None):
 
     ### Download
     if imd1:
-        print('Downnloading {}.geo.mli.tif as {}.geo.mli.tif...'.format(imd1, frameID), flush=True)
+        print('Downloading {}.geo.mli.tif as {}.geo.mli.tif...'.format(imd1, frameID), flush=True)
         url_mli = os.path.join(url, imd1, imd1+'.geo.mli.tif')
         mlitif = frameID+'.geo.mli.tif'
         if os.path.exists(mlitif):
@@ -228,7 +228,7 @@ def main(argv=None):
         
         ### Download
         for i, imd in enumerate(imdates):
-            print('  Downnloading {} ({}/{})...'.format(imd, i+1, n_im), flush=True)
+            print('  Downloading {} ({}/{})...'.format(imd, i+1, n_im), flush=True)
             url_sltd = os.path.join(url, imd, imd+'.sltd.geo.tif')
             path_sltd = os.path.join(gacosdir, imd+'.sltd.geo.tif')
             if os.path.exists(path_sltd):
@@ -263,7 +263,7 @@ def main(argv=None):
     
     ### Download
     for i, ifgd in enumerate(ifgdates):
-        print('  Downnloading {} ({}/{})...'.format(ifgd, i+1, n_ifg), flush=True)
+        print('  Downloading {} ({}/{})...'.format(ifgd, i+1, n_ifg), flush=True)
         url_unw = os.path.join(url, ifgd, ifgd+'.geo.unw.tif')
         path_unw = os.path.join(ifgd, ifgd+'.geo.unw.tif')
         if not os.path.exists(ifgd): os.mkdir(ifgd)
