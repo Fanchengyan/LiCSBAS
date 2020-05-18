@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-v1.4 20200503 Yu Morishita, GSI
+v1.3 20200311 Yu Morishita, Uni of Leeds and GSI
 
 ========
 Overview
@@ -19,12 +19,7 @@ Output files
    - *.geo.N.tif
    - *.geo.U.tif
    - *.geo.hgt.tif
-   - baselines
-   - metadata.txt
-[- GACOS/] (if --get_gacos is used and GACOS data available on COMET-LiCS web)
-  [- yyyymmdd.sltd.geo.tif]
-
-=====
+   - baselinestime_format = lambda a:time.strftime('%H:%M:%S',time.localtime(a))
 Usage
 =====
 LiCSBAS01_get_geotiff.py [-f frameID] [-s yyyymmdd] [-e yyyymmdd] [--get_gacos]
@@ -37,9 +32,7 @@ LiCSBAS01_get_geotiff.py [-f frameID] [-s yyyymmdd] [-e yyyymmdd] [--get_gacos]
 """
 #%% Change log
 '''
-v1.4 20200503 Yu Morishita, GSI
- - Update download_data (thanks to sahitono)
-v1.3 20200311 Yu Morishita, Uni of Leeds and GSI
+v1.3 2020031 Yu Morishita, Uni of Leeds and GSI
  - Deal with only new LiCSAR file structure
 v1.2 20200302 Yu Morishita, Uni of Leeds and GSI
  - Compatible with new LiCSAR file structure (backward-compatible)
@@ -62,6 +55,7 @@ from bs4 import BeautifulSoup
 import numpy as np
 import datetime as dt
 import LiCSBAS_tools_lib as tools_lib
+from data_downloader import downloader
 
 class Usage(Exception):
     """Usage context manager"""
@@ -87,26 +81,30 @@ def main(argv=None):
     startdate = 20141001
     enddate = int(dt.date.today().strftime("%Y%m%d"))
     get_gacos = False
-
+    
 
     #%% Read options
     try:
         try:
-            opts, args = getopt.getopt(argv[1:], "hf:s:e:", ["help", "get_gacos"])
+            opts, args = getopt.getopt(argv[1:], "hl:f:s:e:", ["help", "get_gacos"])
         except getopt.error as msg:
             raise Usage(msg)
         for o, a in opts:
             if o == '-h' or o == '--help':
                 print(__doc__)
                 return 0
-            elif o == '-f':
-                frameID = a
-            elif o == '-s':
-                startdate = int(a)
-            elif o == '-e':
-                enddate = int(a)
-            elif o == '--get_gacos':
-                get_gacos = True
+            else:
+                if o == '-l':
+                    limit = int(a)
+                if o == '-f':
+                    frameID = a
+                if o == '-s':
+                    startdate = int(a)
+                if o == '-e':
+                    enddate = int(a)
+                if o == '--get_gacos':
+                    get_gacos = True
+
 
     except Usage as err:
         print("\nERROR:", file=sys.stderr, end='')
@@ -137,28 +135,25 @@ def main(argv=None):
 
     LiCSARweb = 'http://gws-access.ceda.ac.uk/public/nceo_geohazards/LiCSAR_products/'
 
-
+    # All metadatas
     #%% ENU and hgt
+    urls = []
+    file_names = []
     for ENU in ['E', 'N', 'U', 'hgt']:
         enutif = '{}.geo.{}.tif'.format(frameID, ENU)
-        if os.path.exists(enutif):
-            print('{} already exist. Skip download.'.format(enutif), flush=True)
-            continue
-        
-        print('Download {}'.format(enutif), flush=True)
+        file_names.append(enutif)
 
         url = os.path.join(LiCSARweb, trackID, frameID, 'metadata', enutif)
-        tools_lib.download_data(url, enutif)
+        urls.append(url)
 
     #%% baselines and metadata.txt
-    print('Download baselines', flush=True)
     url = os.path.join(LiCSARweb, trackID, frameID, 'metadata', 'baselines')
-    tools_lib.download_data(url, 'baselines')
+    urls.append(url)
+    file_names.append('baselines')
 
-    print('Download metadata.txt', flush=True)
     url = os.path.join(LiCSARweb, trackID, frameID, 'metadata', 'metadata.txt')
-    tools_lib.download_data(url, 'metadata.txt')
-
+    urls.append(url)
+    file_names.append('metadata.txt')
 
     #%% mli
     ### Get available dates
@@ -174,25 +169,21 @@ def main(argv=None):
     _imdates = (_imdates[(_imdates>=startdate)*(_imdates<=enddate)]).astype('str').tolist()
     
     ## Find earliest date in which mli is available
-    imd1 = []
-    for imd in _imdates: 
-        url_mli = os.path.join(url, imd, imd+'.geo.mli.tif')
-        response = requests.head(url_mli)
-        if  response.ok:
-            imd1 = imd
-            break
 
-    ### Download
-    if imd1:
-        print('Downloading {}.geo.mli.tif as {}.geo.mli.tif...'.format(imd1, frameID), flush=True)
-        url_mli = os.path.join(url, imd1, imd1+'.geo.mli.tif')
+    urls_mli = np.array([os.path.join(url, imd, imd+'.geo.mli.tif') for imd in _imdates])
+    status_ok = downloader.status_ok(urls_mli)
+    try:
+        url_mli = urls_mli[status_ok][0]
+        print('Find the mli file in {}'.format(url_mli))
         mlitif = frameID+'.geo.mli.tif'
-        if os.path.exists(mlitif):
-            print('    {} already exist. Skip'.format(mlitif), flush=True)
-        else:
-            tools_lib.download_data(url_mli, mlitif)
-    else:
+
+        urls.append(url_mli)
+        file_names.append(mlitif)
+    except:
         print('No mli available on {}'.format(url), file=sys.stderr, flush=True)
+        
+    # download metadatas
+    downloader.async_download_datas(urls,None,file_names,limit,'All metadatas')
 
 
     #%% GACOS if specified
@@ -212,30 +203,22 @@ def main(argv=None):
         _imdates = np.int32(np.array(imdates_all))
         _imdates = (_imdates[(_imdates>=startdate)*(_imdates<=enddate)]).astype('str').tolist()
 
-        ### Extract available dates
-        imdates = []
-        for imd in _imdates:
-            url_sltd = os.path.join(url, imd, imd+'.sltd.geo.tif')
-            response = requests.get(url_sltd)
-            if response.ok:
-                imdates.append(imd)
-
-        n_im = len(imdates)
+        urls = np.array([os.path.join(url, i, i+'.sltd.geo.tif') for i in _imdates])
+        status_ok = downloader.status_ok(urls)
+        urls_sltd = urls[status_ok]
+        
+        n_im = len(urls_sltd)
         if n_im > 0:
-            print('{} GACOS data available from {} to {}'.format(n_im, imdates[0], imdates[-1]), flush=True)
+            extract_time = lambda a:os.path.basename(a).split('.')[0]
+            print('{} GACOS data available from {} to {}'.format(n_im, extract_time(urls_sltd[0]),
+                extract_time(urls_sltd[-1])), flush=True)
+            ### Download
+            files_sltd = [os.path.basename(url) for url in urls_sltd]
+            downloader.async_download_datas(urls_sltd,gacosdir,files_sltd,limit,'GACOS')
         else:
             print('No GACOS data available from {} to {}'.format(startdate, enddate), flush=True)
         
-        ### Download
-        for i, imd in enumerate(imdates):
-            print('  Downloading {} ({}/{})...'.format(imd, i+1, n_im), flush=True)
-            url_sltd = os.path.join(url, imd, imd+'.sltd.geo.tif')
-            path_sltd = os.path.join(gacosdir, imd+'.sltd.geo.tif')
-            if os.path.exists(path_sltd):
-                print('    {}.sltd.geo.tif already exist. Skip'.format(imd), flush=True)
-            else:
-                tools_lib.download_data(url_sltd, path_sltd)
-    
+        
 
     #%% unw and cc
     ### Get available dates
@@ -262,29 +245,39 @@ def main(argv=None):
     print('{} IFGs available from {} to {}'.format(n_ifg, imdates[0], imdates[-1]), flush=True)
     
     ### Download
+    urls_unw = []
+    paths_unw = []
+    urls_cc = []
+    paths_cc = []
     for i, ifgd in enumerate(ifgdates):
         print('  Downloading {} ({}/{})...'.format(ifgd, i+1, n_ifg), flush=True)
         url_unw = os.path.join(url, ifgd, ifgd+'.geo.unw.tif')
         path_unw = os.path.join(ifgd, ifgd+'.geo.unw.tif')
-        if not os.path.exists(ifgd): os.mkdir(ifgd)
-        if os.path.exists(path_unw):
-            print('    {}.geo.unw.tif already exist. Skip'.format(ifgd), flush=True)
-        else:
-            tools_lib.download_data(url_unw, path_unw)
+
+        #new
+        urls_unw.append(url_unw)
+        paths_unw.append(path_unw)
+
+        if not os.path.exists(ifgd):
+            os.mkdir(ifgd)
 
         url_cc = os.path.join(url, ifgd, ifgd+'.geo.cc.tif')
         path_cc = os.path.join(ifgd, ifgd+'.geo.cc.tif')
-        if os.path.exists(path_cc):
-            print('    {}.geo.cc.tif already exist. Skip.'.format(ifgd), flush=True)
-        tools_lib.download_data(url_cc, path_cc)
-   
+
+        #new
+        urls_cc.append(url_cc)
+        paths_cc.append(path_cc)
+        # if not tools_lib.download_data(url_cc, path_cc):
+        #     print('    Error while downloading from {}'.format(url_cc), file=sys.stderr, flush=True)
+    downloader.async_download_datas(urls_unw,None,paths_unw,limit,'unwraped interferograms')
+    downloader.async_download_datas(urls_cc,None,paths_cc,limit,'coherences')
 
     #%% Finish
     elapsed_time = time.time()-start
     hour = int(elapsed_time/3600)
-    minite = int(np.mod((elapsed_time/60),60))
+    minute = int(np.mod((elapsed_time/60),60))
     sec = int(np.mod(elapsed_time,60))
-    print("\nElapsed time: {0:02}h {1:02}m {2:02}s".format(hour,minite,sec))
+    print("\nElapsed time: {0:02}h {1:02}m {2:02}s".format(hour,minute,sec))
 
     print('\n{} Successfully finished!!\n'.format(os.path.basename(argv[0])))
     print('Output directory: {}\n'.format(outdir))
