@@ -59,6 +59,7 @@ p01_frame=""	# e.g. 021D_04972_131213
 p01_start_date=""	# default: 20141001
 p01_end_date=""	# default: today
 p01_get_gacos="y" # y/n 
+p01_limit="150"	# the number of files downloading simultaneously
 p02_GEOCdir=""	# default: GEOC
 p02_GEOCmldir=""	# default: GEOCml$nlook
 p02_frame=""	# e.g. 021D_04972_131213
@@ -108,12 +109,12 @@ echo ""
 mkdir -p $logdir
 
 if [ $start_step -le 01 -a $end_step -ge 01 ];then
-  p01_op=""
+  p01_op="-l $p01_limit"
   if [ ! -z $p01_frame ];then p01_op="$p01_op -f $p01_frame"; fi
   if [ ! -z $p01_start_date ];then p01_op="$p01_op -s $p01_start_date"; fi
   if [ ! -z $p01_end_date ];then p01_op="$p01_op -e $p01_end_date"; fi
   if [ $p01_get_gacos == "y" ];then p01_op="$p01_op --get_gacos"; fi
-
+  
   if [ $check_only == "y" ];then
     echo "LiCSBAS01_get_geotiff.py $p01_op"
   else
