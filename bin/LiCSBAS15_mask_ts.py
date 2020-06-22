@@ -52,7 +52,7 @@ LiCSBAS15_mask_ts.py -t tsadir [-c coh_thre] [-u n_unw_r_thre] [-v vstd_thre]
    L-band : -c 0.01 -u 1   -v 200 -T 1 -g 1  -s 10 -i 10 -l 1 -r 10
  
 """
-#%% Change log
+# %% Change log
 '''
 v1.7 20200224 Yu Morishita, Uni of Leeds and GSI
  - Change color of mask_ts.png
@@ -73,34 +73,36 @@ v1.0 20190724 Yu Morishita, Uni of Leeds and GSI
  - Original implementation
 '''
 
-#%% Import
+# %% Import
+from matplotlib import pyplot as plt
+import matplotlib
+import warnings
+import LiCSBAS_plot_lib as plot_lib
+import LiCSBAS_io_lib as io_lib
+import SCM
+import numpy as np
+import time
+import sys
 import getopt
 import os
-os.environ['QT_QPA_PLATFORM']='offscreen'
-import sys
-import time
-import numpy as np
-import SCM
-import LiCSBAS_io_lib as io_lib
-import LiCSBAS_plot_lib as plot_lib
+os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 
-import warnings
-import matplotlib
-with warnings.catch_warnings(): ## To silence user warning
+with warnings.catch_warnings():  # To silence user warning
     warnings.simplefilter('ignore', UserWarning)
     matplotlib.use('Agg')
-from matplotlib import pyplot as plt
 plt.rcParams['axes.titlesize'] = 10
+
 
 class Usage(Exception):
     """Usage context manager"""
+
     def __init__(self, msg):
         self.msg = msg
 
 
-#%%
+# %%
 def add_subplot(fig, i, data, vmin, vmax, cmap, title):
-    ax = fig.add_subplot(3, 4, i+1) #index start from 1
+    ax = fig.add_subplot(3, 4, i+1)  # index start from 1
     im = ax.imshow(data, vmin=vmin, vmax=vmax, cmap=cmap)
     fig.colorbar(im)
     ax.set_title('{0}'.format(title))
@@ -108,35 +110,39 @@ def add_subplot(fig, i, data, vmin, vmax, cmap, title):
     ax.set_yticklabels([])
 
 
-#%% Main
+# %% Main
 def main(argv=None):
-   
-    #%% Check argv
+
+    # %% Check argv
     if argv == None:
         argv = sys.argv
-        
+
     start = time.time()
-    ver=1.7; date=20200224; author="Y. Morishita"
-    print("\n{} ver{} {} {}".format(os.path.basename(argv[0]), ver, date, author), flush=True)
-    print("{} {}".format(os.path.basename(argv[0]), ' '.join(argv[1:])), flush=True)
+    ver = 1.7
+    date = 20200224
+    author = "Y. Morishita"
+    print("\n{} ver{} {} {}".format(os.path.basename(
+        argv[0]), ver, date, author), flush=True)
+    print("{} {}".format(os.path.basename(
+        argv[0]), ' '.join(argv[1:])), flush=True)
 
-
-    #%% Set default
+    # %% Set default
     tsadir = []
     thre_dict = {}
     vmin = []
     vmax = []
     keep_isolated = False
     auto_adjust = True
-    
+
     cmap_vel = SCM.roma.reversed()
     cmap_noise = 'viridis'
     cmap_noise_r = 'viridis_r'
-    
-    #%% Read options
+
+    # %% Read options
     try:
         try:
-            opts, args = getopt.getopt(argv[1:], "ht:c:u:v:g:i:l:r:T:s:", ["version", "help", "vmin=", "vmax=", "keep_isolated", "noautoadjust"])
+            opts, args = getopt.getopt(argv[1:], "ht:c:u:v:g:i:l:r:T:s:", [
+                                       "version", "help", "vmin=", "vmax=", "keep_isolated", "noautoadjust"])
         except getopt.error as msg:
             raise Usage(msg)
         for o, a in opts:
@@ -184,195 +190,213 @@ def main(argv=None):
         print("  "+str(err.msg), file=sys.stderr)
         print("\nFor help, use -h or --help.\n", file=sys.stderr)
         return 2
- 
 
-    #%% Directory and file setting and get info
+    # %% Directory and file setting and get info
     tsadir = os.path.abspath(tsadir)
-    resultsdir = os.path.join(tsadir,'results')
+    resultsdir = os.path.join(tsadir, 'results')
 
     inparmfile = os.path.join(tsadir, 'info', '13parameters.txt')
-    if not os.path.exists(inparmfile):  ## for old LiCSBAS13 <v1.2
+    if not os.path.exists(inparmfile):  # for old LiCSBAS13 <v1.2
         inparmfile = os.path.join(tsadir, 'info', 'parameters.txt')
     outparmfile = os.path.join(tsadir, 'info', '15parameters.txt')
-    maskts_png = os.path.join(tsadir,'mask_ts.png')
-    maskts2_png = os.path.join(tsadir,'mask_ts_masked.png')
+    maskts_png = os.path.join(tsadir, 'mask_ts.png')
+    maskts2_png = os.path.join(tsadir, 'mask_ts_masked.png')
 
-    names = ['coh_avg', 'n_unw', 'vstd', 'maxTlen', 'n_gap', 'stc', 'n_ifg_noloop', 'n_loop_err', 'resid_rms'] ## noise indices
-    gt_lt = ['lt', 'lt', 'gt', 'lt', 'gt', 'gt', 'gt', 'gt', 'gt'] ## > or <
-    ## gt: greater values than thre are masked 
-    ## lt: more little values than thre are masked (coh_avg, n_unw, maxTlen)
+    names = ['coh_avg', 'n_unw', 'vstd', 'maxTlen', 'n_gap', 'stc',
+             'n_ifg_noloop', 'n_loop_err', 'resid_rms']  # noise indices
+    gt_lt = ['lt', 'lt', 'gt', 'lt', 'gt', 'gt', 'gt', 'gt', 'gt']  # > or <
+    # gt: greater values than thre are masked
+    # lt: more little values than thre are masked (coh_avg, n_unw, maxTlen)
 
     units = ['', '', 'mm/yr', 'yr', '', 'mm', '', '', 'mm']
 
-
-    ### Get size and ref
+    # Get size and ref
     width = int(io_lib.get_param_par(inparmfile, 'range_samples'))
     length = int(io_lib.get_param_par(inparmfile, 'azimuth_lines'))
     wavelength = float(io_lib.get_param_par(inparmfile, 'wavelength'))
 
     n_im = int(io_lib.get_param_par(inparmfile, 'n_im'))
 
-    
-    #%% Determine default thretholds depending on frequency band
-    if not 'maxTlen' in thre_dict: thre_dict['maxTlen'] = 1
-    if not 'n_ifg_noloop' in thre_dict: thre_dict['n_ifg_noloop'] = 10
+    # %% Determine default thretholds depending on frequency band
+    if not 'maxTlen' in thre_dict:
+        thre_dict['maxTlen'] = 1
+    if not 'n_ifg_noloop' in thre_dict:
+        thre_dict['n_ifg_noloop'] = 10
 
-    if wavelength > 0.2: ## L-band
-        if not 'coh_avg' in thre_dict: thre_dict['coh_avg'] = 0.01
-        if not 'n_unw_r' in thre_dict: thre_dict['n_unw_r'] = 1.0
-        if not 'vstd' in thre_dict: thre_dict['vstd'] = 200
-        if not 'n_gap' in thre_dict: thre_dict['n_gap'] = 1
-        if not 'stc' in thre_dict: thre_dict['stc'] = 10
-        if not 'n_loop_err' in thre_dict: thre_dict['n_loop_err'] = 1
-        if not 'resid_rms' in thre_dict: thre_dict['resid_rms'] = 10
-    if wavelength < 0.2: ## C-band
-        if not 'coh_avg' in thre_dict: thre_dict['coh_avg'] = 0.05
-        if not 'n_unw_r' in thre_dict: thre_dict['n_unw_r'] = 1.5
-        if not 'vstd' in thre_dict: thre_dict['vstd'] = 100
-        if not 'n_gap' in thre_dict: thre_dict['n_gap'] = 10
-        if not 'stc' in thre_dict: thre_dict['stc'] = 5
-        if not 'n_loop_err' in thre_dict: thre_dict['n_loop_err'] = 5
-        if not 'resid_rms' in thre_dict: thre_dict['resid_rms'] = 2
-    
+    if wavelength > 0.2:  # L-band
+        if not 'coh_avg' in thre_dict:
+            thre_dict['coh_avg'] = 0.01
+        if not 'n_unw_r' in thre_dict:
+            thre_dict['n_unw_r'] = 1.0
+        if not 'vstd' in thre_dict:
+            thre_dict['vstd'] = 200
+        if not 'n_gap' in thre_dict:
+            thre_dict['n_gap'] = 1
+        if not 'stc' in thre_dict:
+            thre_dict['stc'] = 10
+        if not 'n_loop_err' in thre_dict:
+            thre_dict['n_loop_err'] = 1
+        if not 'resid_rms' in thre_dict:
+            thre_dict['resid_rms'] = 10
+    if wavelength < 0.2:  # C-band
+        if not 'coh_avg' in thre_dict:
+            thre_dict['coh_avg'] = 0.05
+        if not 'n_unw_r' in thre_dict:
+            thre_dict['n_unw_r'] = 1.5
+        if not 'vstd' in thre_dict:
+            thre_dict['vstd'] = 100
+        if not 'n_gap' in thre_dict:
+            thre_dict['n_gap'] = 10
+        if not 'stc' in thre_dict:
+            thre_dict['stc'] = 5
+        if not 'n_loop_err' in thre_dict:
+            thre_dict['n_loop_err'] = 5
+        if not 'resid_rms' in thre_dict:
+            thre_dict['resid_rms'] = 2
+
     thre_dict['n_unw'] = int(n_im*thre_dict['n_unw_r'])
 
-    
-    #%% Read data
-    velfile = os.path.join(resultsdir,'vel')
+    # %% Read data
+    velfile = os.path.join(resultsdir, 'vel')
     vel = io_lib.read_img(velfile, length, width)
     bool_nan = np.isnan(vel)
-    bool_nan[vel==0] = True ## Ref point. Unmask later
-    n_pt_all = (~bool_nan).sum() ## Number of unnan points
+    bool_nan[vel == 0] = True  # Ref point. Unmask later
+    n_pt_all = (~bool_nan).sum()  # Number of unnan points
 
     data_dict = {}
     for name in names:
         file = os.path.join(resultsdir, name)
         data_dict[name] = io_lib.read_img(file, length, width)
 
-    ## stc is always nan at isolted pixels.
+    # stc is always nan at isolted pixels.
     if keep_isolated:
-        ## Give 0 to keep isolated pixels
+        # Give 0 to keep isolated pixels
         data_dict['stc'][np.isnan(data_dict['stc'])] = 0
     else:
-        ## Give stc_thre to remove isolated pixels
+        # Give stc_thre to remove isolated pixels
         data_dict['stc'][np.isnan(data_dict['stc'])] = thre_dict['stc']+1
-        
 
-    #%% Make mask
-    ### Evaluate only valid pixels in vel
+    # %% Make mask
+    # Evaluate only valid pixels in vel
     mask_pt = np.ones_like(vel)[~bool_nan]
     mskd_rate = []
-    
+
     for i, name in enumerate(names):
         _data = data_dict[name][~bool_nan]
         _thre = thre_dict[name]
 
-        if gt_lt[i] == 'lt': ## coh_avg, n_unw, maxTlen
-            ## Multiply -1 to treat as if gt
+        if gt_lt[i] == 'lt':  # coh_avg, n_unw, maxTlen
+            # Multiply -1 to treat as if gt
             _data = -1*_data
             _thre = -1*_thre
 
-        ### First check if the thre masks not all pixels
-        ### If all pixels are masked, change thre to the max/min value
+        # First check if the thre masks not all pixels
+        # If all pixels are masked, change thre to the max/min value
         if auto_adjust:
             minvalue = np.nanmin(_data)
             if minvalue > _thre:
-                print('\nAll pixels would be masked with {} thre of {}'.format(name, thre_dict[name]), flush=True)
+                print('\nAll pixels would be masked with {} thre of {}'.format(
+                    name, thre_dict[name]), flush=True)
                 thre_dict[name] = np.ceil(minvalue)
                 _thre = thre_dict[name]
                 if gt_lt[i] == 'lt':
                     thre_dict[name] = -1*thre_dict[name]
-                print('Automatically change the thre to {} (ceil of min value)'.format(thre_dict[name]), flush=True)
+                print('Automatically change the thre to {} (ceil of min value)'.format(
+                    thre_dict[name]), flush=True)
 
-        ### Make mask for this index
-        with warnings.catch_warnings(): ## To silence RuntimeWarning of nan<thre
+        # Make mask for this index
+        with warnings.catch_warnings():  # To silence RuntimeWarning of nan<thre
             warnings.simplefilter('ignore', RuntimeWarning)
-            _mask_pt = (_data <= _thre) # nan returns false
+            _mask_pt = (_data <= _thre)  # nan returns false
         mskd_rate.append((1-_mask_pt.sum()/n_pt_all)*100)
         mask_pt = mask_pt*_mask_pt
-    
-    ### Make total mask
-    mask = np.ones_like(vel)*np.nan
-    mask[~bool_nan] = mask_pt  #1:valid, 0:masked, nan:originally nan
-    mask[vel==0] = 1 ## Retrieve ref point
 
-    ### Apply mask
+    # Make total mask
+    mask = np.ones_like(vel)*np.nan
+    mask[~bool_nan] = mask_pt  # 1:valid, 0:masked, nan:originally nan
+    mask[vel == 0] = 1  # Retrieve ref point
+
+    # Apply mask
     vel_mskd = vel*mask
-    vel_mskd[mask==0] = np.nan
-        
-    ### Count total mask
+    vel_mskd[mask == 0] = np.nan
+
+    # Count total mask
     n_nomask = int(np.nansum(mask))
     rate_nomask = n_nomask/n_pt_all*100
 
-
-    #%% Stdout and save info
+    # %% Stdout and save info
     with open(outparmfile, "w") as f:
         print('')
         print('Noise index    : Threshold  (rate to be masked)')
         print('Noise index    : Threshold  (rate to be masked)', file=f)
         for i, name in enumerate(names):
-            print('- {:12s} : {:4} {:5} ({:4.1f}%)'.format(name, thre_dict[name], units[i], mskd_rate[i]))
-            print('- {:12s} : {:4} {:5} ({:4.1f}%)'.format(name, thre_dict[name], units[i], mskd_rate[i]), file=f)
+            print('- {:12s} : {:4} {:5} ({:4.1f}%)'.format(name,
+                                                           thre_dict[name], units[i], mskd_rate[i]))
+            print('- {:12s} : {:4} {:5} ({:4.1f}%)'.format(name,
+                                                           thre_dict[name], units[i], mskd_rate[i]), file=f)
         print('')
         print('', file=f)
-        print('Masked pixels  : {}/{} ({:.1f}%)'.format(n_pt_all-n_nomask, n_pt_all, 100-rate_nomask))
-        print('Masked pixels  : {}/{} ({:.1f}%)'.format(n_pt_all-n_nomask, n_pt_all, 100-rate_nomask), file=f)
-        print('Kept pixels    : {}/{} ({:.1f}%)\n'.format(n_nomask, n_pt_all, rate_nomask), flush=True)
-        print('Kept pixels    : {}/{} ({:.1f}%)\n'.format(n_nomask, n_pt_all, rate_nomask), file=f)
+        print('Masked pixels  : {}/{} ({:.1f}%)'.format(n_pt_all -
+                                                        n_nomask, n_pt_all, 100-rate_nomask))
+        print('Masked pixels  : {}/{} ({:.1f}%)'.format(n_pt_all -
+                                                        n_nomask, n_pt_all, 100-rate_nomask), file=f)
+        print('Kept pixels    : {}/{} ({:.1f}%)\n'.format(n_nomask,
+                                                          n_pt_all, rate_nomask), flush=True)
+        print('Kept pixels    : {}/{} ({:.1f}%)\n'.format(n_nomask,
+                                                          n_pt_all, rate_nomask), file=f)
 
     if n_nomask == 1:
         print('All pixels are masked!!', file=sys.stderr)
         print('Try again with different threshold.\n', file=sys.stderr)
         return 1
 
-
-    #%% Prepare for png
-    ## Set color range for vel
-    if not vmin: ## auto
+    # %% Prepare for png
+    # Set color range for vel
+    if not vmin:  # auto
         vmin = np.nanpercentile(vel_mskd, 1)
-        if np.isnan(vmin): ## In case no data in vel_mskd
+        if np.isnan(vmin):  # In case no data in vel_mskd
             vmin = np.nanpercentile(vel, 1)
-    if not vmax: ## auto
+    if not vmax:  # auto
         vmax = np.nanpercentile(vel_mskd, 99)
-        if np.isnan(vmax): ## In case no data in vel_mskd 
+        if np.isnan(vmax):  # In case no data in vel_mskd
             vmax = np.nanpercentile(vel, 1)
-        
 
-    #%% Output thumbnail png
+    # %% Output thumbnail png
     if length > width:
         figsize_y = 9
         figsize_x = int(figsize_y*4/3*width/length+2)
-        if figsize_x < 6: figsize_x = 6
+        if figsize_x < 6:
+            figsize_x = 6
     else:
         figsize_x = 12
         figsize_y = int((figsize_x)/4*3*length/width)
-        if figsize_y < 4: figsize_y = 4
-    
-    fig = plt.figure(figsize = (figsize_x, figsize_y))
-    fig2 = plt.figure(figsize = (figsize_x, figsize_y))
+        if figsize_y < 4:
+            figsize_y = 4
 
-    ##First 3; vel.mskd, vel, mask
+    fig = plt.figure(figsize=(figsize_x, figsize_y))
+    fig2 = plt.figure(figsize=(figsize_x, figsize_y))
+
+    # First 3; vel.mskd, vel, mask
     data = [vel_mskd, vel, mask]
     titles = ['vel.mskd', 'vel', 'mask']
     vmins = [vmin, vmin, 0]
     vmaxs = [vmax, vmax, 1]
     cmaps = [cmap_vel, cmap_vel, cmap_noise]
-    for i in range(3): 
+    for i in range(3):
         add_subplot(fig, i, data[i], vmins[i], vmaxs[i], cmaps[i], titles[i])
-        i2 = 0 if i==1 else 1 if i==0 else 2 # inv vel and vel.mskd
+        i2 = 0 if i == 1 else 1 if i == 0 else 2  # inv vel and vel.mskd
         add_subplot(fig2, i2, data[i], vmins[i], vmaxs[i], cmaps[i], titles[i])
 
-
-    ## Next 9 noise indices
+    # Next 9 noise indices
     mask_nan = mask.copy()
-    mask_nan[mask==0] = np.nan
+    mask_nan[mask == 0] = np.nan
     for i, name in enumerate(names):
         data = data_dict[name]
-        ## Mask nan in vel for each indeces except coh_avg and n_unw
+        # Mask nan in vel for each indeces except coh_avg and n_unw
         if not name == 'coh_avg' and not name == 'n_unw':
             data[bool_nan] = np.nan
-        
-        if gt_lt[i] == 'lt': ## coh_avg, n_unw, maxTlen
+
+        if gt_lt[i] == 'lt':  # coh_avg, n_unw, maxTlen
             cmap = cmap_noise
             vmin_n = thre_dict[name]*0.8
             vmax_n = np.nanmax(data)
@@ -384,45 +408,41 @@ def main(argv=None):
         title = '{} {}({})'.format(name, units[i], thre_dict[name])
         add_subplot(fig, i+3, data, vmin_n, vmax_n, cmap, title)
         add_subplot(fig2, i+3, data*mask_nan, vmin_n, vmax_n, cmap, title)
-        #i+3 because 3 data already plotted
-              
+        # i+3 because 3 data already plotted
 
     fig.tight_layout()
     fig.savefig(maskts_png)
     fig2.tight_layout()
     fig2.savefig(maskts2_png)
-    
+
 #    plt.close(fig=fig)
 
-    
-    #%% Output vel.mskd and mask
-    velmskdfile = os.path.join(resultsdir,'vel.mskd')
+    # %% Output vel.mskd and mask
+    velmskdfile = os.path.join(resultsdir, 'vel.mskd')
     vel_mskd.tofile(velmskdfile)
 
     pngfile = velmskdfile+'.png'
     title = 'Masked velocity (mm/yr)'
     plot_lib.make_im_png(vel_mskd, pngfile, cmap_vel, title, vmin, vmax)
 
-
-    maskfile = os.path.join(resultsdir,'mask')
+    maskfile = os.path.join(resultsdir, 'mask')
     mask.tofile(maskfile)
 
     pngfile = maskfile+'.png'
     title = 'Mask'
     plot_lib.make_im_png(mask, pngfile, cmap_noise, title, 0, 1)
 
-    
-    #%% Finish
+    # %% Finish
     elapsed_time = time.time()-start
     hour = int(elapsed_time/3600)
-    minite = int(np.mod((elapsed_time/60),60))
-    sec = int(np.mod(elapsed_time,60))
-    print("\nElapsed time: {0:02}h {1:02}m {2:02}s".format(hour,minite,sec))
+    minite = int(np.mod((elapsed_time/60), 60))
+    sec = int(np.mod(elapsed_time, 60))
+    print("\nElapsed time: {0:02}h {1:02}m {2:02}s".format(hour, minite, sec))
 
     print('\n{} Successfully finished!!\n'.format(os.path.basename(argv[0])))
     print('Output png: {}\n'.format(os.path.relpath(maskts_png)), flush=True)
 
 
-#%% main
+# %% main
 if __name__ == "__main__":
     sys.exit(main())

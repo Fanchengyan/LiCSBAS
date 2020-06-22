@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-v1.1 20190805 Yu Morishita, Uni of Leeds and GSI
+v1.2 20200622 Chengyan Fan, Lanzhou University
 
 ========
 Overview
@@ -24,10 +24,13 @@ LiCSBAS14_vel_std.py -t tsadir [--mem_size float]
 
  -t  Path to the TS_GEOCml* dir.
  --mem_size   Max memory size for each patch in MB. (Default: 4000)
+ --GPU  Using GPU to accelerate the processing 
 
 """
 # %% Change log
 '''
+v1.2 20200622 Chengyan Fan, Lanzhou University
+ - GPU support
 v1.1 20190805 Yu Morishita, Uni of Leeds and GSI
  - Bag fix of stc calculation with overlapping
 v1.0 20190725 Yu Morishita, Uni of Leeds and GSI
@@ -260,6 +263,4 @@ def main(argv=None):
 
 # %% main
 if __name__ == "__main__":
-    # args = 'LiCSBAS14_vel_std.py -t TS_GEOCml10GACOS --GPU'.split()
-    # # main(args)
     sys.exit(main())

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-v1.2 20200225 Yu Morishita, Uni of Leeds and GSI
+v1.3 20200601 Fan Chengyan, Lanzhou University
 
 ========
 Overview
@@ -63,6 +63,7 @@ LiCSBAS13_sb_inv.py -d ifgdir [-t tsadir] [--inv_alg LS|WLS] [--mem_size float] 
      (Note this value is ratio to the number of images; i.e., 1.5*n_im)
      Larger number (e.g. 2.5) makes processing faster but result sparser.
      (Default: 1 and 0.5 for C- and L-band, respectively)
+ --GPU  Using GPU to accelerate the processing 
  --keep_incfile
      Not remove inc and resid files (Default: remove them)
 
@@ -70,6 +71,7 @@ LiCSBAS13_sb_inv.py -d ifgdir [-t tsadir] [--inv_alg LS|WLS] [--mem_size float] 
 
 '''
 v1.3 20200601 Fan Chengyan, Lanzhou University
+ - GPU support
 v1.2 20200225 Yu Morishita, Uni of Leeds and GSI
  - Not output network pdf
  - Change color of png
@@ -766,18 +768,6 @@ def main(argv=None):
         params[i, :, :] = params[i, :, :] - \
             np.nanmean(params[i, :, :][ref_points])
 
-    # min_rms = np.nanmin(rms_cum_wrt_med)
-    # refy1s, refx1s = np.where(rms_cum_wrt_med==min_rms)
-    # refy1s, refx1s = refy1s[0], refx1s[0] ## Only first index
-    # refy2s, refx2s = refy1s+1, refx1s+1
-    # print('Selected ref: {}:{}/{}:{}'.format(refx1s, refx2s, refy1s, refy2s), flush=True)
-
-    # ### Rerferencing cumulative displacement  and vel to new stable ref
-    # for i in range(n_im):
-    #     cum[i, :, :] = cum[i, :, :] - cum[i, refy1s, refx1s]
-    # vel = vel - vel[refy1s, refx1s]
-    # vconst = vconst - vconst[refy1s, refx1s]
-
     # Save image
     rms_cum_wrt_med_file = os.path.join(infodir, '13rms_cum_wrt_med')
     with open(rms_cum_wrt_med_file, 'w') as f:
@@ -905,7 +895,4 @@ def main(argv=None):
 
 # %% main
 if __name__ == "__main__":
-    # sys.exit(main())
-    args = 'python -d GEOCml10GACOS -t  TS_GEOCml10GACOS --inv_alg=LS --GPU'.split()
-    # args = 'python -d GEOCml10GACOS -t  TS_GEOCml10GACOS --inv_alg=WLS --mem_size=4000 --n_core=1'.split()
-    main(args)
+    sys.exit(main())

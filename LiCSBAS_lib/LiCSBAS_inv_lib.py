@@ -8,6 +8,7 @@ Python3 library of time series inversion functions for LiCSBAS.
 =========
 Changelog
 =========
+v1.4 20200622 Chengyan Fan, Lanzhou University
 v1.3 20200103 Yu Morioshita, Uni of Leeds and GSI
  - Bag fix in calc_stc (return nonzero even if two adjacent pixels have identical ts)
 v1.2 20190823 Yu Morioshita, Uni of Leeds and GSI
@@ -646,7 +647,7 @@ def calc_velstd_withnan(cum, dt_cum, gpu=False):
     vstd = xp.nanstd(bootresult, axis=0)
     if gpu:
         vstd = xp.asnumpy(vstd)
-        
+
     print('')
 
     return vstd
