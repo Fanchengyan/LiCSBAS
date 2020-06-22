@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """
+v1.4 20200622 Chengyan Fan, Lanzhou University
+
 ========
 Overview
 ========
@@ -9,6 +11,7 @@ Python3 library of time series inversion functions for LiCSBAS.
 Changelog
 =========
 v1.4 20200622 Chengyan Fan, Lanzhou University
+ - GPU support 
 v1.3 20200103 Yu Morioshita, Uni of Leeds and GSI
  - Bag fix in calc_stc (return nonzero even if two adjacent pixels have identical ts)
 v1.2 20190823 Yu Morioshita, Uni of Leeds and GSI
@@ -28,9 +31,7 @@ import LiCSBAS_tools_lib as tools_lib
 
 
 class NumpyRNGContext:
-    """
-    Modified from astropy.utils.NumpyRNGContext to support cupy
-    """
+    """Modified from astropy.utils.NumpyRNGContext to support cupy"""
 
     def __init__(self, seed, gpu=False):
         self.seed = seed
