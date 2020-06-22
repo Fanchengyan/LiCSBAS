@@ -333,25 +333,41 @@ def main(argv=None):
 
     ### Find stable ref area which have all n_unw and minimum ns_bad_loop and loop_ph_rms_points
     mask1 = (n_unw==np.nanmax(n_unw))
-    min_ns_bad_loop = np.nanmin(ns_bad_loop)
-    while True:
-        mask2 = (ns_bad_loop==min_ns_bad_loop)
-        if np.all(~(mask1*mask2)): ## All masked
-            min_ns_bad_loop = min_ns_bad_loop+1 ## Make mask2 again
-        else:
-            break
+    # =====================================
+    # ! my modify
+    min_ns_bad_loop = np.nanmin(ns_bad_loop[mask1])
+    mask2 = (ns_bad_loop==min_ns_bad_loop)
+
+    # min_ns_bad_loop = np.nanmin(ns_bad_loop)
+    # while True:
+    #     mask2 = (ns_bad_loop==min_ns_bad_loop)
+    #     if np.all(~(mask1*mask2)): ## All masked
+    #         min_ns_bad_loop = min_ns_bad_loop+1 ## Make mask2 again
+    #     else:
+    #         break
+    # =====================================
+    
     loop_ph_rms_points_masked = loop_ph_rms_points*mask1*mask2
     loop_ph_rms_points_masked[loop_ph_rms_points_masked==0] = np.nan
     refyx = np.where(loop_ph_rms_points_masked==np.nanmin(loop_ph_rms_points_masked))
-    refy1 = refyx[0][0] # start from 0, not 1
-    refy2 = refyx[0][0]+1 # shift +1 for python custom. start from 1 end with width
-    refx1 = refyx[1][0]
-    refx2 = refyx[1][0]+1
 
-    ### Save 12ref.txt
+    # ======================
+    # ! my modify
+    # ### Save 12ref.txt
     reffile = os.path.join(infodir, '12ref.txt')
     with open(reffile, 'w') as f:
-        print('{0}:{1}/{2}:{3}'.format(refx1, refx2, refy1, refy2), file=f)
+        f.write(f'({refyx[0].tolist()},{refyx[1].tolist()})')
+    # ======================
+
+    # refy1 = refyx[0][0] # start from 0, not 1
+    # refy2 = refyx[0][0]+1 # shift +1 for python custom. start from 1 end with width
+    # refx1 = refyx[1][0]
+    # refx2 = refyx[1][0]+1
+
+    # ### Save 12ref.txt
+    # reffile = os.path.join(infodir, '12ref.txt')
+    # with open(reffile, 'w') as f:
+    #     print('{0}:{1}/{2}:{3}'.format(refx1, refx2, refy1, refy2), file=f)
 
     ### Save loop_ph_rms_masked and png
     loop_ph_rms_maskedfile = os.path.join(loopdir, 'loop_ph_rms_masked')
@@ -369,8 +385,12 @@ def main(argv=None):
             continue
         
         unwfile = os.path.join(ifgdir, ifgd, ifgd+'.unw')
-        unw_ref = io_lib.read_img(unwfile, length, width)[refy1:refy2, refx1:refx2]
-        
+        # ======================
+        # ! my modify
+        unw_ref = io_lib.read_img(unwfile, length, width)[refyx]
+        # unw_ref = io_lib.read_img(unwfile, length, width)[refy1:refy2, refx1:refx2]
+        # ======================
+
         unw_ref[unw_ref == 0] = np.nan # Fill 0 with nan
         if np.all(np.isnan(unw_ref)):
             noref_ifg.append(ifgd)
@@ -405,9 +425,9 @@ def main(argv=None):
             continue
 
         ## Skip if no data in ref area in any unw. It is bad data.
-        ref_unw12 = np.nanmean(unw12[refy1:refy2, refx1:refx2])
-        ref_unw23 = np.nanmean(unw23[refy1:refy2, refx1:refx2])
-        ref_unw13 = np.nanmean(unw13[refy1:refy2, refx1:refx2])
+        ref_unw12 = np.nanmean(unw12[refyx])
+        ref_unw23 = np.nanmean(unw23[refyx])
+        ref_unw13 = np.nanmean(unw13[refyx])
 
         ## Calculate loop phase taking into account ref phase
         loop_ph = unw12+unw23-unw13-(ref_unw12+ref_unw23-ref_unw13)
@@ -478,9 +498,9 @@ def main(argv=None):
             continue
 
         ## Compute ref
-        ref_unw12 = np.nanmean(unw12[refy1:refy2, refx1:refx2])
-        ref_unw23 = np.nanmean(unw23[refy1:refy2, refx1:refx2])
-        ref_unw13 = np.nanmean(unw13[refy1:refy2, refx1:refx2])
+        ref_unw12 = np.nanmean(unw12[refyx])
+        ref_unw23 = np.nanmean(unw23[refyx])
+        ref_unw13 = np.nanmean(unw13[refyx])
 
         ## Calculate loop phase taking into account ref phase
         loop_ph = unw12+unw23-unw13-(ref_unw12+ref_unw23-ref_unw13)

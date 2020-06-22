@@ -22,28 +22,40 @@ import datetime as dt
 import statsmodels.api as sm
 
 
-#%%
+# %%
 def make_dummy_bperp(bperp_file, imdates):
     with open(bperp_file, 'w') as f:
         for i, imd in enumerate(imdates):
-            if i==0: bp = 0
-            elif np.mod(i, 4)==1: bp = np.random.rand()/2+0.5 #0.5~1
-            elif np.mod(i, 4)==2: bp = -np.random.rand()/2-0.5 #-1~-0.5
-            elif np.mod(i, 4)==3: bp = np.random.rand()/2 #0~0.5
-            elif np.mod(i, 4)==0: bp = -np.random.rand()/2 #-0.5~0
+            if i == 0:
+                bp = 0
+            elif np.mod(i, 4) == 1:
+                bp = np.random.rand()/2+0.5  # 0.5~1
+            elif np.mod(i, 4) == 2:
+                bp = -np.random.rand()/2-0.5  # -1~-0.5
+            elif np.mod(i, 4) == 3:
+                bp = np.random.rand()/2  # 0~0.5
+            elif np.mod(i, 4) == 0:
+                bp = -np.random.rand()/2  # -0.5~0
 
-            ifg_dt = dt.datetime.strptime(imd, '%Y%m%d').toordinal() - dt.datetime.strptime(imdates[0], '%Y%m%d').toordinal()
-            
-            print('{:3d} {} {} {:5.2f} {:4d} {} {:4d} {} {:5.2f}'.format(i, imdates[0], imd, bp, ifg_dt, 0, ifg_dt, 0, bp), file=f)
+            ifg_dt = dt.datetime.strptime(imd, '%Y%m%d').toordinal(
+            ) - dt.datetime.strptime(imdates[0], '%Y%m%d').toordinal()
+
+            print('{:3d} {} {} {:5.2f} {:4d} {} {:4d} {} {:5.2f}'.format(
+                i, imdates[0], imd, bp, ifg_dt, 0, ifg_dt, 0, bp), file=f)
 
 
-#%%
-def make_point_kml(lat, lon, kmlfile):
+# %%
+def make_point_kml(lats, lons, kmlfile):
     with open(kmlfile, "w") as f:
-        print('<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document><Placemark><Point>\n<coordinates>{},{}</coordinates>\n</Point></Placemark></Document>\n</kml>'.format(lon, lat), file=f)
+        ponits = ['<coordinates>{},{}</coordinates>\n'.format(lon, lat)
+                  for lat, lon in zip(lats, lons)]
+        ponits_str = ''.join(ponits)
+        f.write('<?xml version="1.0" encoding="UTF-8"?>\n'
+                '<kml xmlns="http://www.opengis.net/kml/2.2">\n'
+                '<Document><Placemark><Point>\n{}</Point></Placemark></Document>\n''</kml>'.format(ponits_str))
 
 
-#%%
+# %%
 def make_tstxt(x, y, imdates, ts, tsfile, refx1, refx2, refy1, refy2, gap, lat=None, lon=None, reflat1=None, reflat2=None, reflon1=None, reflon2=None, deramp_flag=None, hgt_linear_flag=None, filtwidth_km=None, filtwidth_yr=None):
     """
     Make txt of time series.
@@ -60,28 +72,31 @@ def make_tstxt(x, y, imdates, ts, tsfile, refx1, refx2, refy1, refy2, gap, lat=N
     20150216   -3.50
     20160716   -3.5
     """
-    ### Calc model
-    imdates_ordinal = np.array(([dt.datetime.strptime(imd, '%Y%m%d').toordinal() for imd in imdates])) ##73????
+    # Calc model
+    imdates_ordinal = np.array(
+        ([dt.datetime.strptime(imd, '%Y%m%d').toordinal() for imd in imdates]))  # 73????
     imdates_yr = (imdates_ordinal-imdates_ordinal[0])/365.25
-    A = sm.add_constant(imdates_yr) #[1, t]
+    A = sm.add_constant(imdates_yr)  # [1, t]
     vconst, vel = sm.OLS(ts, A, missing='drop').fit().params
-    
-    ### Identify gaps
-    ixs_gap = np.where(gap==1)[0] # n_im-1, bool
+
+    # Identify gaps
+    ixs_gap = np.where(gap == 1)[0]  # n_im-1, bool
     gap_str = ''
     for ix_gap in ixs_gap:
         gap_str = gap_str+imdates[ix_gap]+'_'+imdates[ix_gap+1]+' '
 
-    ### Output
+    # Output
     with open(tsfile, 'w') as f:
         print('# x, y    : {}, {}'.format(x, y), file=f)
         if all(v is not None for v in [lat, lon]):
             print('# lat, lon: {:.5f}, {:.5f}'.format(lat, lon), file=f)
         print('# ref     : {}:{}/{}:{}'.format(refx1, refx2, refy1, refy2), file=f)
         if all(v is not None for v in [reflon1, reflon2, reflat1, reflat2]):
-            print('# refgeo  : {:.5f}/{:.5f}/{:.5f}/{:.5f}'.format(reflon1, reflon2, reflat1, reflat2), file=f)
+            print('# refgeo  : {:.5f}/{:.5f}/{:.5f}/{:.5f}'.format(reflon1,
+                                                                   reflon2, reflat1, reflat2), file=f)
         if filtwidth_yr is not None:
-            print('# deramp, filtwidth_km, filtwidth_yr : {}, {}, {:.3f}'.format(deramp_flag, filtwidth_km, filtwidth_yr), file=f)
+            print('# deramp, filtwidth_km, filtwidth_yr : {}, {}, {:.3f}'.format(
+                deramp_flag, filtwidth_km, filtwidth_yr), file=f)
         if hgt_linear_flag is not None:
             print('# hgt_linear_flag : {}'.format(hgt_linear_flag), file=f)
         print('# gap     : {}'.format(gap_str), file=f)
@@ -91,7 +106,7 @@ def make_tstxt(x, y, imdates, ts, tsfile, refx1, refx2, refy1, refy2, gap, lat=N
             print('{} {:7.2f}'.format(imd, ts[i]), file=f)
 
 
-#%%
+# %%
 def read_bperp_file(bperp_file, imdates):
     """
     bperp_file (baselines) contains (m:master, s:slave, sm: single master):
@@ -108,49 +123,65 @@ def read_bperp_file(bperp_file, imdates):
     """
     bperp = []
     bperp_dict = {}
-    
-    ### Determine type of bperp_file; old or not
-    with open(bperp_file) as f:
-        line = f.readline().split() #list
 
-    if len(line) == 4: ## new format
-        bperp_dict[line[0]] = '0.00' ## single master. unnecessary?
+    # Determine type of bperp_file; old or not
+    with open(bperp_file) as f:
+        line = f.readline().split()  # list
+
+    if len(line) == 4:  # new format
+        bperp_dict[line[0]] = '0.00'  # single master. unnecessary?
         with open(bperp_file) as f:
             for l in f:
                 bperp_dict[l.split()[1]] = l.split()[2]
-        
-    else: ## old format
+
+    else:  # old format
         with open(bperp_file) as f:
             for l in f:
                 bperp_dict[l.split()[1]] = l.split()[-2]
                 bperp_dict[l.split()[2]] = l.split()[-1]
-            
+
     for imd in imdates:
         if imd in bperp_dict:
             bperp.append(float(bperp_dict[imd]))
-        else: ## If no key exists
+        else:  # If no key exists
             print('ERROR: bperp for {} not found!'.format(imd), file=sys.stderr)
             return False
-    
+
     return bperp
 
 
-#%%
+# %%
 def read_img(file, length, width, dtype=np.float32, endian='little'):
     """
     Read image data into numpy array.
     endian: 'little' or 'big' (not 'little' is regarded as 'big')
     """
-    
+
     if endian == 'little':
         data = np.fromfile(file, dtype=dtype).reshape((length, width))
     else:
-        data = np.fromfile(file, dtype=dtype).byteswap().reshape((length, width))
-    
+        data = np.fromfile(file, dtype=dtype).byteswap().reshape(
+            (length, width))
+
     return data
 
 
-#%%
+def read_vimg(file, band, length, width, dtype=np.float32, endian='little'):
+    """
+    Read image data into numpy array.
+    endian: 'little' or 'big' (not 'little' is regarded as 'big')
+    """
+
+    if endian == 'little':
+        data = np.fromfile(file, dtype=dtype).reshape((band, length, width))
+    else:
+        data = np.fromfile(file, dtype=dtype).byteswap().reshape(
+            (band, length, width))
+
+    return data
+# %%
+
+
 def read_ifg_list(ifg_listfile):
     ifgdates = []
     f = open(ifg_listfile)
@@ -159,16 +190,16 @@ def read_ifg_list(ifg_listfile):
         ifgd = line.split()[0]
         if ifgd == "#":
             line = f.readline()
-            continue # Comment
+            continue  # Comment
         else:
             ifgdates.append(ifgd)
             line = f.readline()
     f.close()
-    
+
     return ifgdates
 
 
-#%%
+# %%
 def get_param_par(mlipar, field):
     """
     Get parameter from mli.par or dem_par file. Examples of fields are;
@@ -180,6 +211,13 @@ def get_param_par(mlipar, field):
      - azimuth_pixel_spacing (m)
      - radar_frequency  (Hz)
     """
-    value = subp.check_output(['grep', field,mlipar]).decode().split()[1].strip()
-    return value
-
+    with open(mlipar) as f:
+        lines = f.readlines()
+        for line in lines:
+            line_splited = line.split()
+            try:
+                key, value = line_splited[0].strip(':'), line_splited[1]
+                if field == key:
+                    return value
+            except:
+                continue

@@ -124,7 +124,7 @@ def main(argv=None):
             print('\nERROR in {}\n'.format(refarea), file=sys.stderr)
             return 2
         else:
-            refx1, refx2, refy1, refy2 = tools_lib.read_range(refarea, width, length)
+            refyx = tools_lib.read_range(refarea, width, length)
     
     ### Master (reference) date
     if not imd_m:
@@ -158,7 +158,7 @@ def main(argv=None):
     cum_m = cum[ix_m, :, :]
 
     cum_dif = cum_s-cum_m
-    cum_dif = cum_dif-np.nanmean(cum_dif[refy1:refy2, refx1:refx2])
+    cum_dif = cum_dif-np.nanmean(cum_dif[refyx])
     cum_dif = cum_dif*mask
         
     cum_dif.tofile(outfile)

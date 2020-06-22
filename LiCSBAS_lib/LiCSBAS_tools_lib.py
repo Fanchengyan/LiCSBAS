@@ -429,7 +429,8 @@ def multilook(array, nlook_r, nlook_c, n_valid_thre=0.5):
 
 # %%
 def read_point(point_str, width, length):
-    if re.match('[0-9]*/[0-9]*', point_str):
+    print(point_str)
+    if re.match(r'\d+/\d+', point_str):
         x, y = [int(s) for s in re.split('[/]', point_str)]
         if x > width-1 or y > length-1:
             print("\nERROR:", file=sys.stderr)
@@ -446,26 +447,18 @@ def read_point(point_str, width, length):
 
 # %%
 def read_range(range_str, width, length):
-    if re.match('[0-9]*:[0-9]*/[0-9]*:[0-9]', range_str):
-        x1, x2, y1, y2 = [int(s) for s in re.split('[:/]', range_str)]
-        if x2 == 0:
-            x2 = width
-        if y2 == 0:
-            y2 = length
-        if x1 > width-1 or x2 > width or y1 > length-1 or y2 > length:
-            print("\nERROR:", file=sys.stderr)
-            print("Index exceed input dimension ({0},{1})!".format(
-                width, length), file=sys.stderr)
-            return False
-        if x1 >= x2 or y1 >= y2:
-            print("\nERROR: x2/y2 must be larger than x1/y1", file=sys.stderr)
-            return False
-    else:
-        print("\nERROR:", file=sys.stderr)
-        print("Range format seems to be wrong (should be x1:x2/y1:y2)", file=sys.stderr)
-        return False
+    x1, x2, y1, y2 = [int(s) for s in re.split('[:/]', range_str)]
+    if x2 == 0:
+        x2 = width
+    if y2 == 0:
+        y2 = length
+    if x1 > width-1 or x2 > width or y1 > length-1 or y2 > length:
+        raise ValueError("\nERROR: Index exceed input dimension ({0},{1})!".format(
+            width, length))
+    if x1 >= x2 or y1 >= y2:
+        raise ValueError("\nERROR: x2/y2 must be larger than x1/y1")
 
-    return [x1, x2, y1, y2]
+    return slice(x1, x2), slice(y1, y2)
 
 
 # %%
